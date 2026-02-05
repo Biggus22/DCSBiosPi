@@ -55,6 +55,34 @@ def main():
 
     print(f"Listening multicast {group}:{port} -> {output_path}")
 
+    # Ensure the PTY slave is in raw 8N1 mode so bytes are passed through
+    # without terminal translations (parity, newline conversion, flow control).
+    try:
+        import termios
+        attrs = termios.tcgetattr(slave_fd)
+        iflag, oflag, cflag, lflag, ispeed, ospeed, cc = attrs
+
+        # raw input: disable canonical mode, echo, signals
+        lflag &= ~(termios.ICANON | termios.ECHO | termios.ECHOE | termios.ECHOK | termios.ISIG | termios.IEXTEN)
+        # raw input flags: disable IXON/IXOFF and CR/NL translations
+        iflag &= ~(termios.IXON | termios.IXOFF | termios.IXANY | termios.INLCR | termios.ICRNL | termios.IGNCR)
+        # raw output: disable post-processing
+        oflag &= ~termios.OPOST
+        # set 8N1: clear size and parity, set CS8
+        cflag &= ~(termios.CSIZE | termios.PARENB | termios.PARODD)
+        cflag |= termios.CS8
+
+        # control chars: return as soon as at least 1 byte is available
+        cc[termios.VMIN] = 1
+        cc[termios.VTIME] = 0
+
+        new_attrs = [iflag, oflag, cflag, lflag, ispeed, ospeed, cc]
+        termios.tcsetattr(slave_fd, termios.TCSANOW, new_attrs)
+    except Exception:
+        # If termios is unavailable or setting fails, continue; user can set
+        # the slave manually with `stty -F /path raw -echo cs8`.
+        pass
+
     try:
         while True:
             data, addr = s.recvfrom(8192)
