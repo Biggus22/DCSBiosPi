@@ -19,6 +19,7 @@ from pathlib import Path
 from typing import Optional
 
 import yaml
+from .dcsb_parser import DcsbiosFramer
 
 
 class UDPSerialBridge:
@@ -61,6 +62,17 @@ class UDPSerialBridge:
             self.mapping = yaml.safe_load(f)
 
     def _udp_reader(self):
+        # framer will assemble complete DCS-BIOS framed packets and call
+        # the provided callback which writes to serial.
+        def on_packet(packet: bytes, ts: float):
+            if self.serial:
+                try:
+                    self.serial.write(packet)
+                except Exception as e:
+                    print("Serial write error in framer callback:", e)
+
+        framer = DcsbiosFramer(on_packet)
+
         while self.running:
             try:
                 data, addr = self.sock.recvfrom(2048)
@@ -69,13 +81,11 @@ class UDPSerialBridge:
                 break
             if not data:
                 continue
-            print(f"UDP RX from {addr}: {data}")
-            # forward to serial
-            if self.serial:
-                try:
-                    self.serial.write(data)
-                except Exception as e:
-                    print("Serial write error:", e)
+            # feed raw UDP bytes into framer; it emits complete frames
+            try:
+                framer.feed(data)
+            except Exception as e:
+                print("Framer feed error:", e)
 
     def _serial_reader(self):
         while self.running and self.serial:
