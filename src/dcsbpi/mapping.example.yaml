@@ -1,0 +1,15 @@
+# Example mapping for packaged dcsbpi
+
+inputs:
+  - name: test_switch
+    gpio: 17
+    type: button
+    on_press: "K:MY_SWITCH_SET:1"
+    on_release: "K:MY_SWITCH_SET:0"
+
+outputs:
+  - name: gear_light
+    gpio: 27
+    type: led
+    match: "GEAR_DOWN:1"
+    active_on: true
