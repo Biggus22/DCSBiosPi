@@ -8,12 +8,21 @@ import threading
 import time
 from PIL import Image, ImageDraw, ImageFont
 
-# Try to import Waveshare epd driver; fall back to image file output
+# Try to import Waveshare epd driver (auto-detect common module names).
+# Fall back to image file output if driver not available.
+epd_module = None
 try:
-    from waveshare_epd import epd2in13
-    EPAPER_AVAILABLE = True
+    import importlib
+    for candidate in ('epd2in13', 'epd2in13_V2', 'epd2in13g_V2', 'epd2in13g'):
+        try:
+            mod = importlib.import_module(f'waveshare_epd.{candidate}')
+            epd_module = mod
+            break
+        except Exception:
+            continue
+    EPAPER_AVAILABLE = epd_module is not None
 except Exception:
-    epd2in13 = None
+    epd_module = None
     EPAPER_AVAILABLE = False
 
 # Default resolution for Waveshare 2.13 inch
@@ -116,17 +125,29 @@ def main():
         current = freq
         print('Frequency update:', freq)
         img = create_image(current, label=args.label)
-        if EPAPER_AVAILABLE and epd2in13 is not None:
-            try:
-                epd = epd2in13.EPD()
-                epd.init(epd.FULL_UPDATE)
-                epd.Clear(0xFF)
-                epd.display(epd.getbuffer(img))
-                epd.sleep()
-            except Exception as e:
-                print('Epaper display failed:', e)
-                if args.outfile:
-                    img.save(args.outfile)
+        if EPAPER_AVAILABLE and epd_module is not None:
+                try:
+                    epd = epd_module.EPD()
+                    epd.init(epd.FULL_UPDATE)
+                    epd.Clear(0xFF)
+                    # Some drivers expect image buffer sized (height, width) or rotated.
+                    try:
+                        target_size = (epd.width, epd.height)
+                    except Exception:
+                        target_size = (EPD_WIDTH, EPD_HEIGHT)
+                    if img.size != target_size:
+                        try:
+                            im = img.resize(target_size)
+                        except Exception:
+                            im = img
+                    else:
+                        im = img
+                    epd.display(epd.getbuffer(im))
+                    epd.sleep()
+                except Exception as e:
+                    print('Epaper display failed:', e)
+                    if args.outfile:
+                        img.save(args.outfile)
         else:
             if args.outfile:
                 img.save(args.outfile)
