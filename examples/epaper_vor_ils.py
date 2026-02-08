@@ -36,8 +36,16 @@ def create_image(freq_text: str, label: str = "F-4E VOR/ILS") -> Image.Image:
     # Draw label
     draw.text((6, 6), label, font=font_small, fill=0)
 
-    # Center frequency
-    w, h = draw.textsize(freq_text, font=font_large)
+    # Center frequency (use textbbox with fallback)
+    try:
+        bbox = draw.textbbox((0, 0), freq_text, font=font_large)
+        w = bbox[2] - bbox[0]
+        h = bbox[3] - bbox[1]
+    except Exception:
+        try:
+            w, h = font_large.getsize(freq_text)
+        except Exception:
+            w, h = draw.textsize(freq_text)
     x = max(0, (EPD_WIDTH - w) // 2)
     y = (EPD_HEIGHT - h) // 2
     draw.text((x, y), freq_text, font=font_large, fill=0)
