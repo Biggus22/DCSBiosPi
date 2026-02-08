@@ -1,0 +1,11 @@
+[build-system]
+requires = ["setuptools", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "dcsbpi"
+version = "0.0.1"
+description = "Minimal DCS-BIOS Raspberry Pi companion scaffold"
+readme = "README.md"
+authors = [ { name = "(you)", email = "you@example.com" } ]
+license = { text = "MIT" }
