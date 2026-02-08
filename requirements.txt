@@ -1,3 +1,2 @@
 pyserial
 Pillow
-waveshare-epd
